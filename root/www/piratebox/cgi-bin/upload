@@ -1,0 +1,55 @@
+#!/usr/bin/ucode
+// Upload: POST /cgi-bin/upload?name=<file>, corpo = contenuto binario (in streaming su disco)
+'use strict';
+
+import * as fs from 'fs';
+import * as pb from 'piratebox';
+
+let m = pb.method();
+if (m != 'POST' && m != 'PUT')
+	pb.fail(405, 'Method not allowed');
+
+let len = pb.content_length();
+if (len <= 0)
+	pb.fail(400, 'Empty file');
+
+const dir = pb.path('files');
+pb.mkdir(dir);
+if (len > pb.upload_limit())
+	pb.fail(413, 'File too large or not enough space');
+
+let name = pb.filename(pb.query().name);
+let tmp = dir + '/.up-' + pb.rand(6);
+let out = fs.open(tmp, 'w');
+if (!out)
+	pb.fail(507, 'Unable to write to disk');
+
+function abort(status, msg) {
+	out.close();
+	fs.unlink(tmp);
+	pb.fail(status, msg);
+}
+
+let remaining = len;
+while (remaining > 0) {
+	let chunk = fs.stdin.read(remaining < 65536 ? remaining : 65536);
+	if (!chunk || !length(chunk))
+		break;
+	if (out.write(chunk) != length(chunk))
+		abort(507, 'Disk full');
+	remaining -= length(chunk);
+}
+
+if (remaining > 0)
+	abort(400, 'Upload interrupted');
+if (!out.close()) {
+	fs.unlink(tmp);
+	pb.fail(507, 'Disk full');
+}
+
+let dest = pb.unique(dir, name);
+if (!fs.rename(tmp, dir + '/' + dest)) {
+	fs.unlink(tmp);
+	pb.fail(507, 'Unable to save the file');
+}
+pb.reply({ ok: true, name: dest });

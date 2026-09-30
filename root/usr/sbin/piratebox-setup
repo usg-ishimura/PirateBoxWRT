@@ -1,0 +1,235 @@
+#!/bin/sh
+# PirateBox: guided setup (run by the installer) and removal.
+#   piratebox-setup            asks for SSID, hostname and data path
+#   piratebox-setup --remove   reverts the system changes (data is kept)
+# Optional variables for non-interactive use: PB_SSID, PB_HOSTNAME, PB_PATH
+
+WWW=/www/piratebox
+DNS='dhcp.@dnsmasq[0].address'
+NGX_CONF=/etc/nginx/conf.d/gl.conf
+NGX=
+
+die() { echo "Error: $*" >&2; exit 1; }
+
+readline() {
+	if [ -t 0 ]; then read -r "$1"
+	elif (: </dev/tty) 2>/dev/null; then read -r "$1" </dev/tty
+	else return 1; fi
+}
+
+check_ssid() {
+	[ ${#1} -ge 1 ] && [ ${#1} -le 32 ] && return 0
+	echo "  The SSID must be 1 to 32 characters long." >&2; return 1
+}
+
+check_host() {
+	printf '%s\n' "$1" | grep -Eq '^[A-Za-z0-9]([A-Za-z0-9.-]{0,60}[A-Za-z0-9])?$' && return 0
+	echo "  Invalid hostname (letters, digits, '.' and '-')." >&2; return 1
+}
+
+check_path() {
+	case "$1" in
+		/|/etc*|/bin*|/sbin*|/lib*|/usr*|/proc*|/sys*|/dev*|/rom*|/www*|/overlay*|/tmp*)
+			echo "  Path not allowed (use e.g. a USB drive in /mnt/sda1/...)." >&2; return 1 ;;
+	esac
+	if printf '%s\n' "$1" | grep -Eq '^/[A-Za-z0-9._/-]+$' && ! printf '%s\n' "$1" | grep -q '\.\.'; then
+		mkdir -p "$1" 2>/dev/null && [ -w "$1" ] && return 0
+		echo "  Cannot create or write to $1." >&2; return 1
+	fi
+	echo "  Absolute path using only A-Z a-z 0-9 . _ - /" >&2; return 1
+}
+
+# ask VAR "question" "default" check_function [preset_value]
+ask() {
+	local var="$1" prompt="$2" def="$3" check="$4" preset="$5" val
+	if [ -n "$preset" ]; then
+		"$check" "$preset" || exit 1
+		eval "$var=\$preset"; return
+	fi
+	while :; do
+		printf '%s [%s]: ' "$prompt" "$def"
+		if readline val; then
+			[ -n "$val" ] || val="$def"
+		else
+			val="$def"; echo
+			"$check" "$val" || die "no terminal available: set PB_SSID, PB_HOSTNAME and PB_PATH"
+		fi
+		if "$check" "$val"; then eval "$var=\$val"; return; fi
+	done
+}
+
+lan_ip() {
+	local ip
+	ip=$(ubus call network.interface.lan status 2>/dev/null | jsonfilter -e '@["ipv4-address"][0].address' 2>/dev/null)
+	[ -n "$ip" ] || ip=$(uci -q get network.lan.ipaddr | cut -d' ' -f1 | cut -d/ -f1)
+	echo "${ip:-192.168.1.1}"
+}
+
+drop_dns() {
+	local h ip
+	h=$(uci -q get piratebox.main.hostname); ip=$(uci -q get piratebox.main.lan_ip)
+	[ -n "$ip" ] || return 0
+	[ -n "$h" ] && uci -q del_list "$DNS=/$h/$ip"
+	uci -q del_list "$DNS=/#/$ip"
+}
+
+drop_wifi() {
+	local s
+	for s in $(uci -q show wireless | sed -n 's/^wireless\.\(pb_[A-Za-z0-9_]*\)=wifi-iface$/\1/p'); do
+		uci -q delete "wireless.$s"
+	done
+}
+
+apply() {
+	uci commit
+	[ "$NGX" = pre ] && nginx_restart
+	/etc/init.d/uhttpd restart >/dev/null 2>&1
+	[ "$NGX" = post ] && nginx_restart
+	/etc/init.d/dnsmasq restart >/dev/null 2>&1
+	wifi reload >/dev/null 2>&1
+}
+
+nginx_restart() {
+	{ /etc/init.d/nginx restart || nginx -s reload; } >/dev/null 2>&1
+}
+
+listening() { # listening PORT PROCESS
+	netstat -lnp 2>/dev/null | grep -E "[:.]$1[[:space:]]" | grep -q "$2"
+}
+
+# GL.iNet firmware: nginx owns port 80; move it to 8080 (admin panel) and free 443 from uhttpd
+move_nginx() {
+	if listening 80 nginx; then
+		[ -f "$NGX_CONF" ] || die "port 80 is used by nginx but $NGX_CONF is missing"
+		[ -f "$NGX_CONF.piratebox" ] || cp "$NGX_CONF" "$NGX_CONF.piratebox"
+		sed -i -E 's/^([[:space:]]*listen[[:space:]]+(\[::\]:)?)80;/\18080;/' "$NGX_CONF"
+		uci set piratebox.main.nginx_moved=1
+		NGX=pre
+	fi
+	if [ "$(uci -q get piratebox.main.nginx_moved)" = 1 ]; then
+		uci -q delete uhttpd.main.listen_https
+		return 0
+	fi
+	listening 443 nginx && uci -q delete uhttpd.main.listen_https
+	return 0
+}
+
+restore_nginx() {
+	[ "$(uci -q get piratebox.main.nginx_moved)" = 1 ] || return 0
+	[ -f "$NGX_CONF.piratebox" ] && mv "$NGX_CONF.piratebox" "$NGX_CONF"
+	uci set piratebox.main.nginx_moved=0
+	NGX=post
+}
+
+do_remove() {
+	drop_dns
+	drop_wifi
+	uci -q delete uhttpd.piratebox
+	if [ "$(uci -q get piratebox.main.uhttpd_moved)" = 1 ] && [ "$(uci -q get piratebox.main.nginx_moved)" != 1 ]; then
+		uci -q delete uhttpd.main.listen_http
+		uci add_list uhttpd.main.listen_http='0.0.0.0:80'
+		uci add_list uhttpd.main.listen_http='[::]:80'
+		uci set piratebox.main.uhttpd_moved=0
+	fi
+	rm -f "$WWW/files"
+	/etc/init.d/piratebox disable 2>/dev/null
+	restore_nginx
+	apply
+	echo "PirateBox removed from the configuration. Data in $(uci -q get piratebox.main.path) was not deleted."
+}
+
+do_setup() {
+	local old_path def_path radio
+	old_path=$(uci -q get piratebox.main.path)
+	if [ -n "$old_path" ]; then def_path=$old_path
+	elif [ -d /mnt/sda1 ]; then def_path=/mnt/sda1/piratebox
+	else def_path=/srv/piratebox; fi
+
+	echo
+	echo "=== PirateBox setup ==="
+	ask SSID  "Access point SSID"                        "$(uci -q get piratebox.main.ssid || echo 'PirateBox - Share Freely')" check_ssid "$PB_SSID"
+	ask HOST  "Local hostname (mapped to the router)"    "$(uci -q get piratebox.main.hostname || echo pirate.box)" check_host "$PB_HOSTNAME"
+	ask DPATH "Path for files, db, json and txt"        "$def_path" check_path "$PB_PATH"
+	DPATH=${DPATH%/}
+	IP=$(lan_ip)
+	CAPTIVE=$(uci -q get piratebox.main.captive_dns || echo 1)
+
+	echo
+	echo "Applying configuration..."
+	mkdir -p "$DPATH/files" "$DPATH/forum"
+
+	# PirateBox configuration
+	uci -q set piratebox.main=piratebox
+	drop_dns
+	uci set piratebox.main.ssid="$SSID"
+	uci set piratebox.main.hostname="$HOST"
+	uci set piratebox.main.path="$DPATH"
+	uci set piratebox.main.lan_ip="$IP"
+
+	# Open access point on every radio, on the LAN network
+	drop_wifi
+	RADIOS=$(uci -q show wireless | sed -n 's/^wireless\.\([A-Za-z0-9_]*\)=wifi-device$/\1/p')
+	for radio in $RADIOS; do
+		uci set "wireless.pb_$radio=wifi-iface"
+		uci set "wireless.pb_$radio.device=$radio"
+		uci set "wireless.pb_$radio.mode=ap"
+		uci set "wireless.pb_$radio.network=lan"
+		uci set "wireless.pb_$radio.ssid=$SSID"
+		uci set "wireless.pb_$radio.encryption=none"
+		uci set "wireless.$radio.disabled=0"
+	done
+
+	# DNS: hostname -> router IP (and, if enabled, every domain for the captive portal)
+	uci add_list "$DNS=/$HOST/$IP"
+	[ "$CAPTIVE" = 1 ] && uci add_list "$DNS=/#/$IP"
+
+	# Web server: PirateBox on port 80, LuCI moved to 8080 (8081 if nginx uses 8080)
+	move_nginx
+	LUCI_PORT=8080
+	[ "$(uci -q get piratebox.main.nginx_moved)" = 1 ] && LUCI_PORT=8081
+	if uci -q get uhttpd.main.listen_http | tr ' ' '\n' | grep -q ':80$'; then
+		uci -q delete uhttpd.main.listen_http
+		uci add_list uhttpd.main.listen_http="0.0.0.0:$LUCI_PORT"
+		uci add_list uhttpd.main.listen_http="[::]:$LUCI_PORT"
+		uci set piratebox.main.uhttpd_moved=1
+	fi
+	uci -q delete uhttpd.piratebox
+	uci set uhttpd.piratebox=uhttpd
+	uci add_list uhttpd.piratebox.listen_http='0.0.0.0:80'
+	uci add_list uhttpd.piratebox.listen_http='[::]:80'
+	uci set uhttpd.piratebox.home="$WWW"
+	uci set uhttpd.piratebox.cgi_prefix='/cgi-bin'
+	uci set uhttpd.piratebox.error_page='/index.html'
+	uci set uhttpd.piratebox.no_dirlist='1'
+	uci set uhttpd.piratebox.max_requests='8'
+	uci set uhttpd.piratebox.script_timeout='3600'
+	uci set uhttpd.piratebox.network_timeout='120'
+
+	/etc/init.d/piratebox enable
+	/etc/init.d/piratebox start
+	apply
+
+	FREE=$(df -h "$DPATH" 2>/dev/null | awk 'NR>1 {print $4}' | tail -n1)
+
+	echo
+	echo "=============================================="
+	echo " PirateBox installed - summary"
+	echo "=============================================="
+	echo " Access point SSID : $SSID (open network)"
+	echo " Local hostname    : $HOST -> $IP"
+	echo " Data path         : $DPATH (free space: ${FREE:-n/a})"
+	echo "----------------------------------------------"
+	echo " Connect to the network and open http://$HOST"
+	if [ "$(uci -q get piratebox.main.nginx_moved)" = 1 ]; then
+		echo " GL.iNet panel     : http://$IP:8080 (or https://$IP)"
+	else
+		echo " LuCI panel       : http://$IP:8080"
+	fi
+	echo "=============================================="
+	[ -n "$RADIOS" ] || echo " WARNING: no Wi-Fi radio found, the access point was not created."
+}
+
+case "$1" in
+	--remove) do_remove ;;
+	*) do_setup ;;
+esac

@@ -1,0 +1,19 @@
+#!/usr/bin/ucode
+// Elenco file condivisi e limite di upload
+'use strict';
+
+import * as pb from 'piratebox';
+
+const dir = pb.path('files');
+pb.mkdir(dir);
+
+let files = [];
+for (let e in pb.list(dir)) {
+	if (e.dir)
+		continue;
+	push(files, { name: e.name, size: e.size });
+	if (length(files) >= 500)
+		break;
+}
+
+pb.reply({ files: files, limit: pb.upload_limit() });

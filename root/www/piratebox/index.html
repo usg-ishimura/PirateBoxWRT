@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PirateBox</title>
+<link rel="icon" type="image/svg+xml" href="/logo.svg">
+<script>
+(function () {
+  var t = null;
+  try { t = localStorage.getItem('pb-theme'); } catch (e) {}
+  if (t !== 'dark' && t !== 'light') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  document.documentElement.dataset.theme = t;
+})();
+</script>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <a class="brand" href="#files"><img src="/logo.svg" alt="" width="40" height="40"><span>PirateBox</span></a>
+  <button id="theme" type="button" aria-label="Toggle light/dark theme"></button>
+</header>
+
+<nav>
+  <a id="t-files" href="#files">File</a>
+  <a id="t-forum" href="#forum">Forum</a>
+  <a id="t-chat" href="#chat">Chat</a>
+</nav>
+
+<main>
+  <div class="nick">
+    <input id="nick" maxlength="24" placeholder="Name (optional, default Anonymous)" autocomplete="off">
+  </div>
+  <p id="note" role="status" hidden></p>
+
+  <section id="v-files" hidden>
+    <label class="drop">
+      <input id="file" type="file" multiple>
+      <span>Tap to share a file</span>
+    </label>
+    <progress id="bar" max="100" value="0" hidden></progress>
+    <p id="limit" class="muted"></p>
+    <ul id="files" class="list"></ul>
+  </section>
+
+  <section id="v-forum" hidden>
+    <div id="f-list">
+      <ul id="threads" class="list"></ul>
+      <form id="f-new">
+        <h2>New thread</h2>
+        <input name="title" maxlength="80" placeholder="Title" required autocomplete="off">
+        <textarea name="m" maxlength="4000" rows="4" placeholder="Message" required></textarea>
+        <button>Post</button>
+      </form>
+    </div>
+    <div id="f-thread" hidden>
+      <a href="#forum">&larr; Forum</a>
+      <h2 id="th-title"></h2>
+      <div id="posts"></div>
+      <form id="f-reply">
+        <textarea name="m" maxlength="4000" rows="3" placeholder="Reply" required></textarea>
+        <button>Send</button>
+      </form>
+    </div>
+  </section>
+
+  <section id="v-chat" hidden>
+    <div id="log" class="log" aria-live="polite"></div>
+    <form id="c-form" class="row">
+      <input name="m" maxlength="500" placeholder="Write a message" required autocomplete="off">
+      <button>Send</button>
+    </form>
+  </section>
+</main>
+
+<div id="modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="m-title" hidden>
+  <div class="modal-box">
+    <div class="modal-head">
+      <strong id="m-title"></strong>
+      <a id="m-dl" href="#" download>Download</a>
+      <button id="m-close" type="button" aria-label="Close">&times;</button>
+    </div>
+    <div id="m-body"></div>
+  </div>
+</div>
+
+<footer>Off grid file drop &amp; communications</footer>
+<script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,66 @@
+#!/usr/bin/ucode
+// Live chat: GET ?since=<offset> (incrementale), POST {n, m, t}
+'use strict';
+
+import * as fs from 'fs';
+import * as pb from 'piratebox';
+
+const file = pb.path('chat.jsonl');
+const MAX_FILE = 512 * 1024;
+
+if (pb.method() == 'POST') {
+	let d = pb.input();
+	let text = pb.clean(d.m, 500, false);
+	if (text == '')
+		pb.fail(400, 'Empty message');
+	let name = pb.clean(d.n, 24, false);
+	if (name == '')
+		name = 'Anonymous';
+
+	pb.mkdir(pb.path());
+	let st = fs.stat(file);
+	if (st && st.size > MAX_FILE)
+		fs.rename(file, file + '.old');
+
+	let f = fs.open(file, 'a');
+	if (!f)
+		pb.fail(507, 'Unable to save the message');
+	f.write(pb.encode({ id: pb.rand(6), t: pb.stamp(d.t), n: name, m: text }) + '\n');
+	f.close();
+	pb.send(200, '{"ok":true}');
+}
+
+let st = fs.stat(file);
+if (!st)
+	pb.send(200, '{"pos":0,"msgs":[]}');
+
+let raw = pb.query().since;
+let since = (raw != null && raw != '') ? int(raw) : -1;
+let size = st.size;
+let initial = !(since >= 0) || since > size || size - since > 65536;
+let base = initial ? (size > 16384 ? size - 16384 : 0) : since;
+
+let f = fs.open(file, 'r');
+f.seek(base);
+let data = f.read(size - base) || '';
+f.close();
+
+if (initial && base > 0) {
+	let nl = index(data, '\n');
+	let skip = nl < 0 ? length(data) : nl + 1;
+	data = substr(data, skip);
+	base += skip;
+}
+
+let parts = split(data, '\n');
+pop(parts); // ultima riga incompleta (o vuota)
+let lines = [], consumed = 0;
+for (let l in parts) {
+	consumed += length(l) + 1;
+	if (substr(l, 0, 1) == '{')
+		push(lines, l);
+}
+if (initial && length(lines) > 50)
+	lines = slice(lines, -50);
+
+pb.send(200, '{"pos":' + (base + consumed) + ',"msgs":[' + join(',', lines) + ']}');

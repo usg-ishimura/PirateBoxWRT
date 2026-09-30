@@ -1,0 +1,13 @@
+#!/bin/sh /etc/rc.common
+# Prepara le cartelle dati (anche su disco USB montato) e il link ai file condivisi
+
+START=99
+
+start() {
+	local p
+	p=$(uci -q get piratebox.main.path)
+	[ -n "$p" ] || return 0
+	mkdir -p "$p/files" "$p/forum"
+	rm -f "$p"/files/.up-*
+	ln -sfn "$p/files" /www/piratebox/files
+}

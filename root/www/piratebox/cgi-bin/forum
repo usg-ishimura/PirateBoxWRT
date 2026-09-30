@@ -1,0 +1,102 @@
+#!/usr/bin/ucode
+// Forum: GET (elenco) | GET ?thread=<id> | POST {thread?, title?, n, m, t}
+'use strict';
+
+import * as fs from 'fs';
+import * as pb from 'piratebox';
+
+const dir = pb.path('forum');
+const MAX_THREADS = 300;
+const MAX_BYTES = 256 * 1024;
+
+function tpath(id) {
+	return dir + '/' + id + '.jsonl';
+}
+
+function validid(id) {
+	return type(id) == 'string' && match(id, /^[0-9a-f]{12}$/) != null;
+}
+
+function append(p, post) {
+	let f = fs.open(p, 'a');
+	if (!f)
+		pb.fail(507, 'Unable to save');
+	f.write(pb.encode(post) + '\n');
+	f.close();
+}
+
+function thread_names() {
+	let names = [];
+	for (let e in pb.list(dir))
+		if (!e.dir && match(e.name, /^[0-9a-f]{12}\.jsonl$/))
+			push(names, e.name);
+	return names;
+}
+
+if (pb.method() == 'POST') {
+	let d = pb.input();
+	let text = pb.clean(d.m, 4000, true);
+	if (text == '')
+		pb.fail(400, 'Empty message');
+	let name = pb.clean(d.n, 24, false);
+	if (name == '')
+		name = 'Anonymous';
+
+	let post = { id: pb.rand(6), t: pb.stamp(d.t), n: name, m: text };
+	let id = d.thread;
+
+	pb.mkdir(dir);
+	if (id != null) {
+		if (!validid(id))
+			pb.fail(400, 'Invalid thread');
+		let st = fs.stat(tpath(id));
+		if (!st)
+			pb.fail(404, 'Thread not found');
+		if (st.size > MAX_BYTES)
+			pb.fail(403, 'Thread is full');
+		append(tpath(id), post);
+	}
+	else {
+		post.title = pb.clean(d.title, 80, false);
+		if (post.title == '')
+			pb.fail(400, 'Missing title');
+		let names = thread_names();
+		while (length(names) >= MAX_THREADS)
+			fs.unlink(dir + '/' + pop(names));
+		id = pb.rand(6);
+		append(tpath(id), post);
+	}
+	pb.reply({ ok: true, id: id });
+}
+
+let thread = pb.query().thread;
+if (thread != null) {
+	if (!validid(thread))
+		pb.fail(404, 'Thread not found');
+	let txt = fs.readfile(tpath(thread));
+	if (txt == null)
+		pb.fail(404, 'Thread not found');
+	let posts = [];
+	for (let l in split(txt, '\n'))
+		if (substr(l, 0, 1) == '{')
+			push(posts, l);
+	pb.send(200, '{"posts":[' + join(',', posts) + ']}');
+}
+
+let out = [];
+for (let name in thread_names()) {
+	let txt = fs.readfile(dir + '/' + name);
+	let nl = txt ? index(txt, '\n') : -1;
+	if (nl < 0)
+		continue;
+	let h = pb.decode(substr(txt, 0, nl));
+	if (type(h) != 'object')
+		continue;
+	push(out, {
+		id: substr(name, 0, 12), title: h.title, n: h.n, t: h.t,
+		replies: length(split(substr(txt, nl + 1), '\n')) - 1
+	});
+	if (length(out) >= 100)
+		break;
+}
+pb.reply({ threads: out });

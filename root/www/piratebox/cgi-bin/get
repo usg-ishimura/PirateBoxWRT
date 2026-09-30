@@ -1,0 +1,68 @@
+#!/usr/bin/ucode
+// Streams a shared media file with HTTP Range support (uhttpd's static handler has none).
+'use strict';
+
+import * as fs from 'fs';
+import * as pb from 'piratebox';
+
+const TYPES = {
+	mp4: 'video/mp4', m4v: 'video/mp4', webm: 'video/webm', ogv: 'video/ogg', mov: 'video/quicktime',
+	mp3: 'audio/mpeg', ogg: 'audio/ogg', oga: 'audio/ogg', opus: 'audio/ogg', wav: 'audio/wav',
+	m4a: 'audio/mp4', aac: 'audio/aac', flac: 'audio/flac'
+};
+
+let name = pb.query().name;
+if (type(name) != 'string' || name == '' || index(name, '/') >= 0 || substr(name, 0, 1) == '.')
+	pb.fail(400, 'Invalid name');
+
+let path = pb.path('files') + '/' + name;
+let st = fs.stat(path);
+if (!st || st.type != 'file')
+	pb.fail(404, 'File not found');
+
+let ext = match(name, /\.([^.]+)$/);
+let mime = (ext && TYPES[lc(ext[1])]) || 'application/octet-stream';
+
+let size = st.size, start = 0, end = size - 1, status = 200;
+let r = match(getenv('HTTP_RANGE') || '', /^bytes=([0-9]*)-([0-9]*)$/);
+if (r && (r[1] != '' || r[2] != '')) {
+	if (r[1] == '') {
+		start = size - int(r[2]);
+		if (start < 0)
+			start = 0;
+	}
+	else {
+		start = int(r[1]);
+		if (r[2] != '')
+			end = int(r[2]);
+	}
+	if (end > size - 1)
+		end = size - 1;
+	if (start > end) {
+		print('Status: 416 Range Not Satisfiable\r\nContent-Range: bytes */', size, '\r\n\r\n');
+		exit(0);
+	}
+	status = 206;
+}
+
+print('Status: ', status, status == 206 ? ' Partial Content' : ' OK', '\r\n',
+	'Content-Type: ', mime, '\r\n',
+	'Accept-Ranges: bytes\r\n',
+	'Content-Length: ', size > 0 ? end - start + 1 : 0, '\r\n',
+	status == 206 ? 'Content-Range: bytes ' + start + '-' + end + '/' + size + '\r\n' : '',
+	'X-Content-Type-Options: nosniff\r\n\r\n');
+
+if (getenv('REQUEST_METHOD') == 'HEAD' || size == 0)
+	exit(0);
+
+let f = fs.open(path, 'r');
+f.seek(start);
+let left = end - start + 1;
+while (left > 0) {
+	let chunk = f.read(left < 65536 ? left : 65536);
+	if (!chunk || !length(chunk))
+		break;
+	print(chunk);
+	left -= length(chunk);
+}
+f.close();

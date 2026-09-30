@@ -1,0 +1,7 @@
+Package: piratebox
+Version: 1.0.0-1
+Depends: ucode, ucode-mod-fs, uhttpd
+Section: net
+Architecture: all
+Maintainer: PirateBoxWRT
+Description: PirateBox - file sharing, forum e chat anonimi, locali e offline
