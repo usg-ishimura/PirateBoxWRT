@@ -1,74 +1,74 @@
-# PirateBox per OpenWrt
+# PirateBox for OpenWrt
 
-File sharing, forum e chat live: anonimi, locali e offline. Frontend statico leggero (tema chiaro/scuro salvato nel browser), backend in ucode su `uhttpd`. Nessun log di IP o richieste.
+File sharing, forum and live chat: anonymous, local and offline. Lightweight static frontend (light/dark theme saved in the browser), backend written in ucode running on `uhttpd`. No IP or request logging.
 
-Richiede OpenWrt 22.03 o successivo con `opkg` (fino a 24.10), anche nei firmware GL.iNet basati su 22.03. Dipende da `ucode`, `ucode-mod-fs` e `uhttpd`.
+Requires OpenWrt 22.03 or later with `opkg` (up to 24.10), including GL.iNet firmware based on 22.03. Depends on `ucode`, `ucode-mod-fs` and `uhttpd`.
 
-## Compilare
+## Build
 
 ```sh
 ./build.sh                                            # dist/piratebox_1.0.0-1_all.ipk
 ARCH=mips_24kc RELEASE=22.03.4 ./build.sh --offline   # dist/piratebox-offline_1.0.0-1_mips_24kc.tar.gz
 ```
 
-Il bundle `--offline` (serve `curl` sul PC) contiene l'`.ipk` e le dipendenze scaricate dal feed ufficiale OpenWrt e verificate con SHA256, cosi' il router non ha bisogno di internet. `ARCH` e' quella del router (`opkg print-architecture`, ad es. `mips_24kc` per GL-AR300M), `RELEASE` la versione di OpenWrt (`/etc/openwrt_release`).
+The `--offline` bundle (needs `curl` on your computer) contains the `.ipk` plus the dependencies downloaded from the official OpenWrt feed and verified with SHA256, so the router does not need internet access. `ARCH` is the router architecture (`opkg print-architecture`, e.g. `mips_24kc` for the GL-AR300M) and `RELEASE` is the OpenWrt version (`/etc/openwrt_release`).
 
-In alternativa, con l'SDK OpenWrt: copia questa cartella in `package/piratebox` e lancia `make package/piratebox/compile`.
+Alternatively, with the OpenWrt SDK: copy this folder to `package/piratebox` and run `make package/piratebox/compile`.
 
-## Installare
+## Install
 
-**Senza internet sul router** (funziona su GL.iNet e OpenWrt puro):
+**Without internet on the router** (works on GL.iNet and plain OpenWrt):
 
 ```sh
 scp dist/piratebox-offline_*.tar.gz root@192.168.1.1:/tmp/
 ssh -t root@192.168.1.1 "cd /tmp && tar xzf piratebox-offline_*.tar.gz && sh piratebox-offline/install.sh"
 ```
 
-Lo script installa solo le dipendenze non ancora presenti, poi la PirateBox.
+The script installs only the dependencies that are not already present, then PirateBox.
 
-**Con internet sul router:**
+**With internet on the router:**
 
 ```sh
 scp dist/piratebox_*.ipk root@192.168.1.1:/tmp/
 ssh -t root@192.168.1.1 "opkg update && opkg install /tmp/piratebox_*.ipk"
 ```
 
-Su GL.iNet l'IP del router e' `192.168.8.1`. Durante l'installazione vengono chiesti:
+On GL.iNet the router IP is `192.168.8.1`. During installation you are asked for:
 
-1. **SSID** dell'access point (rete aperta, creata su tutte le radio Wi-Fi)
-2. **Nome host locale** mappato sull'IP del router (default `pirate.box`)
-3. **Percorso** dove salvare file, forum e chat (default `/mnt/sda1/piratebox` se c'e' un disco USB, altrimenti `/srv/piratebox`)
+1. **Access point SSID** (open network, created on every Wi-Fi radio)
+2. **Local hostname** mapped to the router IP (default `pirate.box`)
+3. **Path** where files, forum and chat are stored (default `/mnt/sda1/piratebox` if a USB drive is present, otherwise `/srv/piratebox`)
 
-A fine installazione viene mostrato un riepilogo dei valori inseriti. Poi basta collegarsi all'SSID e aprire `http://<hostname>`.
+At the end a summary of the values you entered is shown. Then just connect to the SSID and open `http://<hostname>`.
 
-Senza domande: anteponi `PB_SSID="Pirate Net" PB_HOSTNAME=pirate.box PB_PATH=/mnt/sda1/piratebox` a `opkg install` o a `sh piratebox-offline/install.sh`.
+Non-interactive: prefix `PB_SSID="Pirate Net" PB_HOSTNAME=pirate.box PB_PATH=/mnt/sda1/piratebox` to `opkg install` or to `sh piratebox-offline/install.sh`.
 
-## Gestione
+## Management
 
-| Azione | Comando |
+| Action | Command |
 | --- | --- |
-| Riconfigurare | `piratebox-setup` |
-| Rimuovere | `opkg remove piratebox` (i dati restano nel percorso scelto) |
-| Eliminare un file | `rm <percorso>/files/<nome>` |
-| Svuotare chat / forum | `rm <percorso>/chat.jsonl*` / `rm <percorso>/forum/*` |
-| Pannello LuCI | `http://192.168.1.1:8080` (la porta 80 e' della PirateBox) |
+| Reconfigure | `piratebox-setup` |
+| Remove | `opkg remove piratebox` (data stays in the chosen path) |
+| Delete a file | `rm <path>/files/<name>` |
+| Clear chat / forum | `rm <path>/chat.jsonl*` / `rm <path>/forum/*` |
+| LuCI panel | `http://192.168.1.1:8080` (port 80 belongs to PirateBox) |
 
-## Note
+## Notes
 
-- Usa un disco USB per i dati: la flash del router e' piccola (se mancano meno di 2 MB liberi gli upload vengono rifiutati). Il limite per file e' `max_upload_mb` in `/etc/config/piratebox` (default 512).
-- Tutti i domini DNS puntano al router, cosi' il telefono apre la pagina da solo (captive portal). Per disattivarlo: `uci set piratebox.main.captive_dns=0 && piratebox-setup`.
-- Se la porta 80 e' occupata da `nginx` (firmware GL.iNet), il setup lo sposta sulla 8080 modificando `/etc/nginx/conf.d/gl.conf` (backup in `gl.conf.piratebox`, ripristinato con `opkg remove`): il pannello GL.iNet diventa `http://192.168.8.1:8080`.
-- Se il Wi-Fi non parte, imposta il codice paese in LuCI (Rete > Wireless).
-- Gli upload `.html`, `.svg`, `.js`, `.xml` vengono rinominati `.txt` per evitare codice eseguito nel browser degli altri utenti.
-- Toccando un file immagine, video, audio, PDF o di testo si apre un'anteprima in un modale. Audio e video passano da `/cgi-bin/get` (supporta gli HTTP Range, necessari su iOS e per spostarsi nel brano); la riproduzione dipende dai codec del browser (MP4/H.264, WebM, MP3, AAC, OGG).
-- Il router non ha un orologio affidabile: gli orari di forum e chat sono quelli dei dispositivi dei partecipanti.
+- Use a USB drive for the data: the router flash is small (uploads are rejected when less than 2 MB are free). The per-file limit is `max_upload_mb` in `/etc/config/piratebox` (default 512).
+- Every DNS domain points to the router so that phones open the page on their own (captive portal). To disable it: `uci set piratebox.main.captive_dns=0 && piratebox-setup`.
+- If port 80 is used by `nginx` (GL.iNet firmware), the setup moves it to 8080 by editing `/etc/nginx/conf.d/gl.conf` (backup in `gl.conf.piratebox`, restored by `opkg remove`): the GL.iNet panel becomes `http://192.168.8.1:8080`.
+- If Wi-Fi does not start, set the country code in LuCI (Network > Wireless).
+- Uploads ending in `.html`, `.svg`, `.js`, `.xml` are renamed to `.txt` so that no code runs in other users' browsers.
+- Tapping an image, video, audio, PDF or text file opens a preview in a modal. Audio and video are served by `/cgi-bin/get` (it supports HTTP Range requests, needed on iOS and for seeking); playback depends on the browser codecs (MP4/H.264, WebM, MP3, AAC, OGG).
+- The router has no reliable clock: forum and chat times are those of the participants' devices.
 
-## Struttura
+## Layout
 
 ```
-root/                 file installati sul router (web, CGI ucode, init, setup)
-control/              metadati e script dell'.ipk
-offline/install.sh    installer incluso nel bundle offline
-PirateBox-logo.svg    logo (copiato nell'app web in fase di build)
-build.sh, Makefile    build standalone / SDK OpenWrt
+root/                 files installed on the router (web, ucode CGI, init, setup)
+control/              .ipk metadata and scripts
+offline/install.sh    installer included in the offline bundle
+PirateBox-logo.svg    logo (copied into the web app at build time)
+build.sh, Makefile    standalone build / OpenWrt SDK
 ```
