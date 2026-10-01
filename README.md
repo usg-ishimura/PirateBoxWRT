@@ -57,7 +57,7 @@ Non-interactive: prefix `PB_SSID="Pirate Net" PB_HOSTNAME=pirate.box PB_PATH=/mn
 
 - Use a USB drive for the data: the router flash is small (uploads are rejected when less than 2 MB are free). The per-file limit is `max_upload_mb` in `/etc/config/piratebox` (default 512).
 - Every DNS domain points to the router so that phones open the page on their own (captive portal). To disable it: `uci set piratebox.main.captive_dns=0 && piratebox-setup`.
-- If port 80 is used by `nginx` (GL.iNet firmware), the setup moves it to 8080 by editing `/etc/nginx/conf.d/gl.conf` (backup in `gl.conf.piratebox`, restored by `opkg remove`): the GL.iNet panel becomes `http://192.168.8.1:8080`.
+- If port 80 is used by `nginx` (GL.iNet firmware), the setup moves it to 8080 by editing `/etc/nginx/conf.d/gl.conf` (backup in `gl.conf.piratebox`, restored by `opkg remove`): the GL.iNet panel becomes `http://192.168.8.1:8080`. The GL.iNet firmware may rewrite that file at boot, so the PirateBox init script re-applies the change for the first minute after every boot (`piratebox-setup --ports`).
 - If Wi-Fi does not start, set the country code in LuCI (Network > Wireless).
 - Uploads ending in `.html`, `.svg`, `.js`, `.xml` are renamed to `.txt` so that no code runs in other users' browsers.
 - Tapping an image, video, audio, PDF or text file opens a preview in a modal. Audio and video are served by `/cgi-bin/get` (it supports HTTP Range requests, needed on iOS and for seeking); playback depends on the browser codecs (MP4/H.264, WebM, MP3, AAC, OGG).

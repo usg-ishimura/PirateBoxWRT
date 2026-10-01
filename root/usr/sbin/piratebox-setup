@@ -7,6 +7,7 @@
 WWW=/www/piratebox
 DNS='dhcp.@dnsmasq[0].address'
 NGX_CONF=/etc/nginx/conf.d/gl.conf
+NGX_LISTEN80='^[[:space:]]*listen[[:space:]]+(\[::\]:)?80;'
 NGX=
 
 die() { echo "Error: $*" >&2; exit 1; }
@@ -90,7 +91,9 @@ apply() {
 }
 
 nginx_restart() {
-	{ /etc/init.d/nginx restart || nginx -s reload; } >/dev/null 2>&1
+	# A reload keeps the patched gl.conf; the GL.iNet init script may regenerate it on restart
+	{ nginx -s reload || /etc/init.d/nginx restart; } >/dev/null 2>&1
+	sleep 2
 }
 
 listening() { # listening PORT PROCESS
@@ -119,6 +122,21 @@ restore_nginx() {
 	[ -f "$NGX_CONF.piratebox" ] && mv "$NGX_CONF.piratebox" "$NGX_CONF"
 	uci set piratebox.main.nginx_moved=0
 	NGX=post
+}
+
+# Boot-time guard: the GL.iNet firmware may rewrite gl.conf, so keep nginx off port 80 for a minute
+do_ports() {
+	local i=0
+	[ "$(uci -q get piratebox.main.nginx_moved)" = 1 ] || exit 0
+	while [ $i -lt 12 ]; do
+		if [ -f "$NGX_CONF" ] && grep -Eq "$NGX_LISTEN80" "$NGX_CONF"; then
+			sed -i -E 's/^([[:space:]]*listen[[:space:]]+(\[::\]:)?)80;/\18080;/' "$NGX_CONF"
+			nginx_restart
+		fi
+		listening 80 uhttpd || /etc/init.d/uhttpd restart >/dev/null 2>&1
+		i=$((i + 1))
+		sleep 5
+	done
 }
 
 do_remove() {
@@ -231,5 +249,6 @@ do_setup() {
 
 case "$1" in
 	--remove) do_remove ;;
+	--ports) do_ports ;;
 	*) do_setup ;;
 esac
