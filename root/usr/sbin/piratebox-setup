@@ -216,6 +216,8 @@ do_setup() {
 		uci set "wireless.pb_$radio.network=lan"
 		uci set "wireless.pb_$radio.ssid=$SSID"
 		uci set "wireless.pb_$radio.encryption=none"
+		# The MediaTek driver only brings up sections with an explicit ifname; ra1 is the only free slot (GL guest network)
+		[ "$(uci -q get "wireless.$radio.type")" = mtk ] && uci set "wireless.pb_$radio.ifname=ra1"
 		uci set "wireless.$radio.disabled=0"
 	done
 
