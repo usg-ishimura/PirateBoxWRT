@@ -7,7 +7,7 @@
 WWW=/www/piratebox
 DNS='dhcp.@dnsmasq[0].address'
 NGX_CONF=/etc/nginx/conf.d/gl.conf
-NGX_LISTEN80='^[[:space:]]*listen[[:space:]]+(\[::\]:)?80;'
+NGX_LISTEN='^[[:space:]]*listen[[:space:]]+(\[::\]:)?(80|443)([[:space:];])'
 NGX=
 
 die() { echo "Error: $*" >&2; exit 1; }
@@ -100,14 +100,23 @@ listening() { # listening PORT PROCESS
 	netstat -lnp 2>/dev/null | grep -E "[:.]$1[[:space:]]" | grep -q "$2"
 }
 
-# GL.iNet firmware: nginx owns port 80; move it to 8080 (admin panel) and free 443 from uhttpd
+# GL.iNet firmware: nginx owns ports 80/443; move them to 8080/8443 (admin panel)
+patch_nginx() {
+	sed -i -E \
+		-e 's/^([[:space:]]*listen[[:space:]]+(\[::\]:)?)80([[:space:];])/\18080\3/' \
+		-e 's/^([[:space:]]*listen[[:space:]]+(\[::\]:)?)443([[:space:];])/\18443\3/' "$NGX_CONF"
+}
+
 move_nginx() {
-	if listening 80 nginx; then
-		[ -f "$NGX_CONF" ] || die "port 80 is used by nginx but $NGX_CONF is missing"
-		[ -f "$NGX_CONF.piratebox" ] || cp "$NGX_CONF" "$NGX_CONF.piratebox"
-		sed -i -E 's/^([[:space:]]*listen[[:space:]]+(\[::\]:)?)80;/\18080;/' "$NGX_CONF"
-		uci set piratebox.main.nginx_moved=1
-		NGX=pre
+	if listening 80 nginx || listening 443 nginx; then
+		if [ -f "$NGX_CONF" ]; then
+			[ -f "$NGX_CONF.piratebox" ] || cp "$NGX_CONF" "$NGX_CONF.piratebox"
+			patch_nginx
+			uci set piratebox.main.nginx_moved=1
+			NGX=pre
+		elif listening 80 nginx; then
+			die "port 80 is used by nginx but $NGX_CONF is missing"
+		fi
 	fi
 	if [ "$(uci -q get piratebox.main.nginx_moved)" = 1 ]; then
 		uci -q delete uhttpd.main.listen_https
@@ -124,13 +133,12 @@ restore_nginx() {
 	NGX=post
 }
 
-# Boot-time guard: the GL.iNet firmware may rewrite gl.conf, so keep nginx off port 80 for a minute
+# Boot-time guard: the GL.iNet firmware may rewrite gl.conf, so keep nginx off 80/443 for a minute
 do_ports() {
 	local i=0
-	[ "$(uci -q get piratebox.main.nginx_moved)" = 1 ] || exit 0
-	while [ $i -lt 12 ]; do
-		if [ -f "$NGX_CONF" ] && grep -Eq "$NGX_LISTEN80" "$NGX_CONF"; then
-			sed -i -E 's/^([[:space:]]*listen[[:space:]]+(\[::\]:)?)80;/\18080;/' "$NGX_CONF"
+	while [ $i -lt 12 ] && [ "$(uci -q get piratebox.main.nginx_moved)" = 1 ]; do
+		if [ -f "$NGX_CONF" ] && grep -Eq "$NGX_LISTEN" "$NGX_CONF"; then
+			patch_nginx
 			nginx_restart
 		fi
 		listening 80 uhttpd || /etc/init.d/uhttpd restart >/dev/null 2>&1
@@ -239,7 +247,7 @@ do_setup() {
 	echo "----------------------------------------------"
 	echo " Connect to the network and open http://$HOST"
 	if [ "$(uci -q get piratebox.main.nginx_moved)" = 1 ]; then
-		echo " GL.iNet panel     : http://$IP:8080 (or https://$IP)"
+		echo " GL.iNet panel     : http://$IP:8080 (or https://$IP:8443)"
 	else
 		echo " LuCI panel       : http://$IP:8080"
 	fi
