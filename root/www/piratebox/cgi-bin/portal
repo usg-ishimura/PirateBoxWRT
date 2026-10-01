@@ -1,0 +1,18 @@
+#!/usr/bin/ucode
+// 404 handler: other hosts (captive-portal probes, any site typed in the browser) are redirected to PirateBox
+'use strict';
+
+import * as fs from 'fs';
+import * as pb from 'piratebox';
+
+let cfg = pb.config();
+let name = lc(cfg.hostname || 'pirate.box');
+let host = lc(replace(getenv('HTTP_HOST') || '', /:[0-9]+$/, ''));
+
+if (host == '' || host == name || host == cfg.lan_ip) {
+	print('Status: 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\n\r\n',
+		fs.readfile('/www/piratebox/index.html'));
+	exit(0);
+}
+
+print('Status: 302 Found\r\nLocation: http://', name, '/\r\nCache-Control: no-store\r\nContent-Length: 0\r\n\r\n');

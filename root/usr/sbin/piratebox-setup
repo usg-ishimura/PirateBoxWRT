@@ -8,6 +8,8 @@ WWW=/www/piratebox
 DNS='dhcp.@dnsmasq[0].address'
 NGX_CONF=/etc/nginx/conf.d/gl.conf
 NGX_LISTEN='^[[:space:]]*listen[[:space:]]+(\[::\]:)?(80|443)([[:space:];])'
+# Hosts that phones/OSes query to detect captive portals; dnsmasq's /#/ wildcard loses to upstream servers
+PROBES='connectivitycheck.gstatic.com/connectivitycheck.android.com/clients3.google.com/connect.rom.miui.com/connectivitycheck.platform.hicloud.com/captive.apple.com/www.msftconnecttest.com/www.msftncsi.com/detectportal.firefox.com/nmcheck.gnome.org/connectivity-check.ubuntu.com'
 NGX=
 
 die() { echo "Error: $*" >&2; exit 1; }
@@ -72,6 +74,7 @@ drop_dns() {
 	[ -n "$ip" ] || return 0
 	[ -n "$h" ] && uci -q del_list "$DNS=/$h/$ip"
 	uci -q del_list "$DNS=/#/$ip"
+	uci -q del_list "$DNS=/$PROBES/$ip"
 }
 
 drop_wifi() {
@@ -205,9 +208,12 @@ do_setup() {
 		uci set "wireless.$radio.disabled=0"
 	done
 
-	# DNS: hostname -> router IP (and, if enabled, every domain for the captive portal)
-	uci add_list "$DNS=/$HOST/$IP"
-	[ "$CAPTIVE" = 1 ] && uci add_list "$DNS=/#/$IP"
+	# DNS: hostname -> router IP (and, if enabled, the captive-portal detection hosts)
+	uci add_list "$DNS=/${HOST}/${IP}"
+	if [ "$CAPTIVE" = 1 ]; then
+		uci add_list "$DNS=/#/${IP}"
+		uci add_list "$DNS=/${PROBES}/${IP}"
+	fi
 
 	# Web server: PirateBox on port 80, LuCI moved to 8080 (8081 if nginx uses 8080)
 	move_nginx
@@ -225,7 +231,7 @@ do_setup() {
 	uci add_list uhttpd.piratebox.listen_http='[::]:80'
 	uci set uhttpd.piratebox.home="$WWW"
 	uci set uhttpd.piratebox.cgi_prefix='/cgi-bin'
-	uci set uhttpd.piratebox.error_page='/index.html'
+	uci set uhttpd.piratebox.error_page='/cgi-bin/portal'
 	uci set uhttpd.piratebox.no_dirlist='1'
 	uci set uhttpd.piratebox.max_requests='8'
 	uci set uhttpd.piratebox.script_timeout='3600'
