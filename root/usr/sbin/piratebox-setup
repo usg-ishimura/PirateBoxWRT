@@ -10,6 +10,9 @@ NGX_CONF=/etc/nginx/conf.d/gl.conf
 NGX_LISTEN='^[[:space:]]*listen[[:space:]]+(\[::\]:)?(80|443)([[:space:];])'
 # Hosts that phones/OSes query to detect captive portals; dnsmasq's /#/ wildcard loses to upstream servers
 PROBES='connectivitycheck.gstatic.com/connectivitycheck.android.com/clients3.google.com/connect.rom.miui.com/connectivitycheck.platform.hicloud.com/captive.apple.com/www.msftconnecttest.com/www.msftncsi.com/detectportal.firefox.com/nmcheck.gnome.org/connectivity-check.ubuntu.com'
+# Probes must resolve to a public-looking address: clients drop answers with private (RFC1918) IPs.
+# TEST-NET-3 is never routed on the internet; the firewall redirects it to the router.
+PROBE_IP=203.0.113.1
 NGX=
 
 die() { echo "Error: $*" >&2; exit 1; }
@@ -75,6 +78,12 @@ drop_dns() {
 	[ -n "$h" ] && uci -q del_list "$DNS=/$h/$ip"
 	uci -q del_list "$DNS=/#/$ip"
 	uci -q del_list "$DNS=/$PROBES/$ip"
+	uci -q del_list "$DNS=/#/$PROBE_IP"
+	uci -q del_list "$DNS=/$PROBES/$PROBE_IP"
+}
+
+drop_fw() {
+	uci -q delete firewall.pb_captive_http
 }
 
 drop_wifi() {
@@ -89,6 +98,7 @@ apply() {
 	[ "$NGX" = pre ] && nginx_restart
 	/etc/init.d/uhttpd restart >/dev/null 2>&1
 	[ "$NGX" = post ] && nginx_restart
+	/etc/init.d/firewall reload >/dev/null 2>&1
 	/etc/init.d/dnsmasq restart >/dev/null 2>&1
 	wifi reload >/dev/null 2>&1
 }
@@ -151,6 +161,7 @@ do_ports() {
 }
 
 do_remove() {
+	drop_fw
 	drop_dns
 	drop_wifi
 	uci -q delete uhttpd.piratebox
@@ -208,11 +219,21 @@ do_setup() {
 		uci set "wireless.$radio.disabled=0"
 	done
 
-	# DNS: hostname -> router IP (and, if enabled, the captive-portal detection hosts)
+	# DNS: hostname -> router IP; captive-portal probes -> public-looking IP redirected to the router
 	uci add_list "$DNS=/${HOST}/${IP}"
+	drop_fw
 	if [ "$CAPTIVE" = 1 ]; then
-		uci add_list "$DNS=/#/${IP}"
-		uci add_list "$DNS=/${PROBES}/${IP}"
+		uci add_list "$DNS=/#/${PROBE_IP}"
+		uci add_list "$DNS=/${PROBES}/${PROBE_IP}"
+		uci set firewall.pb_captive_http=redirect
+		uci set firewall.pb_captive_http.name='PirateBox captive portal'
+		uci set firewall.pb_captive_http.src='lan'
+		uci set firewall.pb_captive_http.proto='tcp'
+		uci set firewall.pb_captive_http.src_dip="$PROBE_IP"
+		uci set firewall.pb_captive_http.src_dport='80'
+		uci set firewall.pb_captive_http.dest_ip="$IP"
+		uci set firewall.pb_captive_http.dest_port='80'
+		uci set firewall.pb_captive_http.target='DNAT'
 	fi
 
 	# Web server: PirateBox on port 80, LuCI moved to 8080 (8081 if nginx uses 8080)
