@@ -38,6 +38,10 @@
       <input id="file" type="file" multiple>
       <span>Tap to share a file</span>
     </label>
+    <div id="c-tip" class="tip" hidden>
+      <span>If file upload is blocked in this page, turn off mobile data and open <b id="tip-host"></b> in a browser.</span>
+      <button id="tip-copy" type="button">Copy link</button>
+    </div>
     <progress id="bar" max="100" value="0" hidden></progress>
     <p id="limit" class="muted"></p>
     <ul id="files" class="list"></ul>

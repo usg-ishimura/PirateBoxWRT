@@ -39,6 +39,8 @@ form.row input { flex: 1; min-width: 0; }
 #note.err { border-color: #c92a2a; color: #c92a2a; }
 .drop { display: block; padding: 22px 12px; text-align: center; border: 2px dashed var(--line); border-radius: 10px; cursor: pointer; background: var(--card); }
 .drop input { display: none; }
+.tip { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; padding: 10px 12px; background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; font-size: .85rem; }
+.tip button { padding: 6px 12px; font-size: .8rem; white-space: nowrap; }
 progress { width: 100%; margin-top: 8px; }
 .list { list-style: none; padding: 0; margin: 8px 0; }
 .list li { display: flex; justify-content: space-between; gap: 10px; padding: 10px 12px; margin-bottom: 6px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; }

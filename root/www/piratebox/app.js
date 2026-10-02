@@ -186,6 +186,46 @@
     })();
   };
 
+  /* captive assistant tip */
+  var tipEl = $('#c-tip');
+  if (tipEl) {
+    var host = location.hostname || 'pirate.box';
+    $('#tip-host').textContent = host;
+    var ua = navigator.userAgent || '';
+    var isCaptive = (/Android/i.test(ua) && (/;\s*wv/i.test(ua) || /Version\/[\d.]+/i.test(ua))) ||
+                    (/(iPhone|iPod|iPad)/i.test(ua) && !/Safari/i.test(ua));
+    if (isCaptive) tipEl.hidden = false;
+    $('#tip-copy').onclick = function () {
+      var btn = this;
+      var link = 'http://' + host + '/';
+      var done = function () {
+        btn.textContent = 'Copied!';
+        setTimeout(function () { btn.textContent = 'Copy link'; }, 2000);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(link).then(done, function () { fallbackCopy(link, done); });
+      } else {
+        fallbackCopy(link, done);
+      }
+    };
+  }
+
+  function fallbackCopy(txt, done) {
+    try {
+      var t = document.createElement('textarea');
+      t.value = txt;
+      t.style.position = 'fixed';
+      t.style.opacity = '0';
+      document.body.appendChild(t);
+      t.select();
+      document.execCommand('copy');
+      document.body.removeChild(t);
+      done();
+    } catch (e) {
+      note('Address: ' + txt);
+    }
+  }
+
   /* forum */
   function when(t) { return new Date(t * 1000).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }); }
 
