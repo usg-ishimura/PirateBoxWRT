@@ -9,7 +9,7 @@ DNS='dhcp.@dnsmasq[0].address'
 NGX_CONF=/etc/nginx/conf.d/gl.conf
 NGX_LISTEN='^[[:space:]]*listen[[:space:]]+(\[::\]:)?(80|443)([[:space:];])'
 # Hosts that phones/OSes query to detect captive portals; dnsmasq's /#/ wildcard loses to upstream servers
-PROBES='connectivitycheck.gstatic.com/connectivitycheck.android.com/clients3.google.com/connect.rom.miui.com/connectivitycheck.platform.hicloud.com/captive.apple.com/www.msftconnecttest.com/www.msftncsi.com/detectportal.firefox.com/nmcheck.gnome.org/connectivity-check.ubuntu.com'
+PROBES='connectivitycheck.gstatic.com/connectivitycheck.android.com/clients3.google.com/clients1.google.com/clients4.google.com/play.googleapis.com/android.clients.google.com/www.gstatic.com/captive.apple.com/gsp1.apple.com/www.apple.com/www.itools.info/www.ibook.info/www.airport.us/www.thinkdifferent.us/www.msftconnecttest.com/msftconnecttest.com/ipv6.msftconnecttest.com/www.msftncsi.com/msftncsi.com/ipv6.msftncsi.com/dns.msftncsi.com/teredo.ipv6.microsoft.com/detectportal.firefox.com/connectivity-check.ubuntu.com/nmcheck.gnome.org/network-test.debian.org/connectivitycheck.samsung.com/connect.rom.miui.com/connectivitycheck.platform.hicloud.com/hicloud.com/connectivitycheck.oneplus.com/connectivitycheck.oppo.com/connectivitycheck.vivo.com/connectivitycheck.realme.com'
 # Probes must resolve to a public-looking address: clients drop answers with private (RFC1918) IPs.
 # TEST-NET-3 is never routed on the internet; the firewall redirects it to the router.
 PROBE_IP=203.0.113.1
@@ -72,14 +72,16 @@ lan_ip() {
 }
 
 drop_dns() {
-	local h ip
+	local h ip e
 	h=$(uci -q get piratebox.main.hostname); ip=$(uci -q get piratebox.main.lan_ip)
 	[ -n "$ip" ] || return 0
 	[ -n "$h" ] && uci -q del_list "$DNS=/$h/$ip"
 	uci -q del_list "$DNS=/#/$ip"
 	uci -q del_list "$DNS=/$PROBES/$ip"
-	uci -q del_list "$DNS=/#/$PROBE_IP"
-	uci -q del_list "$DNS=/$PROBES/$PROBE_IP"
+	# Also drops entries written by older versions with a different probe list
+	for e in $(uci -q get "$DNS"); do
+		case "$e" in */"$PROBE_IP") uci -q del_list "$DNS=$e" ;; esac
+	done
 }
 
 drop_fw() {
