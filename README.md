@@ -66,7 +66,6 @@ Non-interactive: prefix `PB_SSID="Pirate Net" PB_HOSTNAME=pirate.box PB_PATH=/mn
 
 - Use a USB drive for the data: the router flash is small (uploads are rejected when less than 2 MB are free). The per-file limit is `max_upload_mb` in `/etc/config/piratebox` (default 512).
 - Captive portal: when a phone joins the network it checks for internet access by contacting well-known hosts (e.g. `connectivitycheck.gstatic.com`, `captive.apple.com`). PirateBox answers those lookups with the fake public address `203.0.113.1` (phones ignore private addresses) and a firewall rule (`firewall.pb_captive_http`) forwards that traffic to the router, which replies with a redirect to `http://<hostname>/`. The phone concludes it is behind a captive portal and shows the "sign in to network" notification that opens PirateBox, while mobile data keeps working for everything else.
-  If the router has real internet access, turn this off so those hosts resolve normally: `uci set piratebox.main.captive_dns=0 && piratebox-setup`.
 
 ## Layout
 
