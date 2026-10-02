@@ -65,7 +65,8 @@ Non-interactive: prefix `PB_SSID="Pirate Net" PB_HOSTNAME=pirate.box PB_PATH=/mn
 ## Notes
 
 - Use a USB drive for the data: the router flash is small (uploads are rejected when less than 2 MB are free). The per-file limit is `max_upload_mb` in `/etc/config/piratebox` (default 512).
-- The connectivity-check hosts used by Android, iOS, Windows and others (`connectivitycheck.gstatic.com`, `captive.apple.com`, ...) resolve to the public-looking address `203.0.113.1` (phones discard private answers), and a firewall DNAT rule (`firewall.pb_captive_http`) redirects its TCP/80 traffic to the router. Any request for another host is answered with a `302` to `http://<hostname>/` (`cgi-bin/portal`). Phones then show the "sign in to network" notification and open PirateBox from it (captive portal), while mobile data keeps serving the internet. HTTPS probes simply fail. If the router has real internet access, disable it so those hosts resolve normally. To disable it: `uci set piratebox.main.captive_dns=0 && piratebox-setup`.
+- Captive portal: when a phone joins the network it checks for internet access by contacting well-known hosts (e.g. `connectivitycheck.gstatic.com`, `captive.apple.com`). PirateBox answers those lookups with the fake public address `203.0.113.1` (phones ignore private addresses) and a firewall rule (`firewall.pb_captive_http`) forwards that traffic to the router, which replies with a redirect to `http://<hostname>/`. The phone concludes it is behind a captive portal and shows the "sign in to network" notification that opens PirateBox, while mobile data keeps working for everything else.
+  If the router has real internet access, turn this off so those hosts resolve normally: `uci set piratebox.main.captive_dns=0 && piratebox-setup`.
 
 ## Layout
 
