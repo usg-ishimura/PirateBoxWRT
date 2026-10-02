@@ -192,9 +192,10 @@
     var host = location.hostname || 'pirate.box';
     $('#tip-host').textContent = host;
     var ua = navigator.userAgent || '';
-    var isCaptive = (/Android/i.test(ua) && (/;\s*wv/i.test(ua) || /Version\/[\d.]+/i.test(ua))) ||
-                    (/(iPhone|iPod|iPad)/i.test(ua) && !/Safari/i.test(ua));
-    if (isCaptive) tipEl.hidden = false;
+    var isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua) ||
+                   (navigator.maxTouchPoints > 1 && /Macintosh/i.test(ua));
+    var mobEl = $('#tip-mob');
+    if (mobEl) mobEl.hidden = !isMobile;
     $('#tip-copy').onclick = function () {
       var btn = this;
       var link = 'http://' + host + '/';
