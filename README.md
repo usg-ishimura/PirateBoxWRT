@@ -66,12 +66,6 @@ Non-interactive: prefix `PB_SSID="Pirate Net" PB_HOSTNAME=pirate.box PB_PATH=/mn
 
 - Use a USB drive for the data: the router flash is small (uploads are rejected when less than 2 MB are free). The per-file limit is `max_upload_mb` in `/etc/config/piratebox` (default 512).
 - The connectivity-check hosts used by Android, iOS, Windows and others (`connectivitycheck.gstatic.com`, `captive.apple.com`, ...) resolve to the public-looking address `203.0.113.1` (phones discard private answers), and a firewall DNAT rule (`firewall.pb_captive_http`) redirects its TCP/80 traffic to the router. Any request for another host is answered with a `302` to `http://<hostname>/` (`cgi-bin/portal`). Phones then show the "sign in to network" notification and open PirateBox from it (captive portal), while mobile data keeps serving the internet. HTTPS probes simply fail. If the router has real internet access, disable it so those hosts resolve normally. To disable it: `uci set piratebox.main.captive_dns=0 && piratebox-setup`.
-- If ports 80/443 are used by `nginx` (GL.iNet firmware), the setup moves them to 8080/8443 by editing `/etc/nginx/conf.d/gl.conf` (backup in `gl.conf.piratebox`, restored by `opkg remove`): the GL.iNet panel becomes `http://192.168.8.1:8080` / `https://192.168.8.1:8443`. The GL.iNet firmware may rewrite that file at boot, so the PirateBox init script re-applies the change for the first minute after every boot (`piratebox-setup --ports`).
-- On GL.iNet routers with the MediaTek driver (e.g. GL-MT300N-V2) the PirateBox AP takes the `ra1` slot, so the GL.iNet guest network cannot be enabled at the same time.
-- If Wi-Fi does not start, set the country code in LuCI (Network > Wireless).
-- Uploads ending in `.html`, `.svg`, `.js`, `.xml` are renamed to `.txt` so that no code runs in other users' browsers.
-- Tapping an image, video, audio, PDF or text file opens a preview in a modal. Audio and video are served by `/cgi-bin/get` (it supports HTTP Range requests, needed on iOS and for seeking); playback depends on the browser codecs (MP4/H.264, WebM, MP3, AAC, OGG).
-- The router has no reliable clock: forum and chat times are those of the participants' devices.
 
 ## Layout
 
