@@ -14,4 +14,14 @@ start() {
 	if [ "$(uci -q get piratebox.main.nginx_moved)" = 1 ]; then
 		( /usr/sbin/piratebox-setup --ports ) >/dev/null 2>&1 &
 	fi
+
+	# MediaTek (mtk) driver leaves the extra AP interface down after boot
+	local pbif
+	pbif=$(uci -q show wireless | sed -n "s/^wireless\.pb_[A-Za-z0-9_]*\.ifname='\(.*\)'$/\1/p")
+	if [ -n "$pbif" ]; then
+		( i=0; while [ $i -lt 12 ]; do
+			for n in $pbif; do ifconfig "$n" up; done
+			i=$((i + 1)); sleep 5
+		done ) >/dev/null 2>&1 &
+	fi
 }
