@@ -196,6 +196,13 @@
                    (navigator.maxTouchPoints > 1 && /Macintosh/i.test(ua));
     var mobEl = $('#tip-mob');
     if (mobEl) mobEl.hidden = !isMobile;
+
+    // Show only inside captive portal assistants (Android CaptivePortalLogin WebView, iOS WebSheet, macOS Captive Network Assistant)
+    var isAndroidCaptive = /Android/i.test(ua) && (/;\s*wv/i.test(ua) || /Version\/[\d.]+/i.test(ua));
+    var isAppleCaptive = (/(iPhone|iPod|iPad|Macintosh)/i.test(ua)) &&
+                         (/CaptiveNetworkSupport/i.test(ua) || (!/Safari/i.test(ua) && !/Chrome|CriOS/i.test(ua) && !/Firefox|FxiOS/i.test(ua)));
+    tipEl.hidden = !(isAndroidCaptive || isAppleCaptive);
+
     $('#tip-copy').onclick = function () {
       var btn = this;
       var link = 'http://' + host + '/';
