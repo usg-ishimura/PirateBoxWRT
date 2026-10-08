@@ -77,3 +77,10 @@ offline/install.sh    installer included in the offline bundle
 PirateBox-logo.svg    logo (copied into the web app at build time)
 build.sh, Makefile    standalone build / OpenWrt SDK
 ```
+
+## DIY Hardware & Captive portal UI
+
+<img width="1600" height="1200" alt="WhatsApp Image 2026-10-08 at 11 00 28" src="https://github.com/user-attachments/assets/d52f2be2-765d-4292-afb3-2adce9675463" />
+
+<img width="1074" height="1928" alt="WhatsApp Image 2026-10-08 at 11 00 28(1)" src="https://github.com/user-attachments/assets/57df7f3a-f5ac-4d5f-8927-66dbc0d6a6cc" />
+
