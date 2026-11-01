@@ -85,3 +85,5 @@ build.sh, Makefile    standalone build / OpenWrt SDK
 <img width="1074" height="1928" alt="WhatsApp Image 2026-10-08 at 11 00 28(1)" src="https://github.com/user-attachments/assets/57df7f3a-f5ac-4d5f-8927-66dbc0d6a6cc" />
 
 <img width="1200" height="1600" alt="WhatsApp Image 2026-10-31 at 15 06 54" src="https://github.com/user-attachments/assets/0a68521d-1016-4b52-a7b4-b4bf6df967b6" />
+
+<!--<img width="1200" height="1600" alt="WhatsApp Image 2026-10-31 at 15 06 54" src="https://github.com/user-attachments/assets/0a68521d-1016-4b52-a7b4-b4bf6df967b6" />-->
