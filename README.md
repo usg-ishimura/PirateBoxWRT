@@ -80,7 +80,7 @@ build.sh, Makefile    standalone build / OpenWrt SDK
 
 ## DIY Hardware & Captive portal UI
 
-<img width="1600" height="1200" alt="WhatsApp Image 2026-10-08 at 11 00 28" src="./20261116_212753.jpg" />
+<img width="1200" alt="WhatsApp Image 2026-10-08 at 11 00 28" src="./20261116_212753.jpg" />
 
 <img width="1074" height="1928" alt="WhatsApp Image 2026-10-08 at 11 00 28(1)" src="./Screenshot_20261116_212217_Captive Portal Login.jpg" />
 
