@@ -82,7 +82,7 @@ build.sh, Makefile    standalone build / OpenWrt SDK
 
 <img width="1600" height="1200" alt="WhatsApp Image 2026-10-08 at 11 00 28" src="./20261116_212753.jpg" />
 
-<img width="1074" height="1928" alt="WhatsApp Image 2026-10-08 at 11 00 28(1)" src="https://github.com/user-attachments/assets/57df7f3a-f5ac-4d5f-8927-66dbc0d6a6cc" />
+<img width="1074" height="1928" alt="WhatsApp Image 2026-10-08 at 11 00 28(1)" src="./Screenshot_20261116_212217_Captive Portal Login.jpg" />
 
 <img width="1200" height="1600" alt="WhatsApp Image 2026-10-31 at 15 06 54" src="./20261101_104724.jpg" />
 
